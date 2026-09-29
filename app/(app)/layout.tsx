@@ -23,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <UserMenu name={user.fullName} role={user.role} />
             </div>
           </div>
-          <div className="sm:flex-1">
+          <div className="min-w-0 sm:flex-1">
             <Nav isSuperadmin={user.role === "superadmin"} />
           </div>
           <div className="hidden items-center gap-1 sm:flex">

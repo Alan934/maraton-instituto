@@ -28,8 +28,9 @@
   --line: #d9e1f2;
 }
 
-html { color-scheme: light; }
+html { color-scheme: light; overflow-x: clip; }
 body {
+  overflow-x: clip;
   background: var(--color-brand-50);
   color: var(--ink);
   font-family: var(--font-sans);
