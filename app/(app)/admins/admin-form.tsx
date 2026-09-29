@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { UserPlus } from "lucide-react";
 import { Message, SubmitButton, type FormState } from "@/components/form-bits";
+import { PasswordInput } from "@/components/password-input";
 import { createAdmin } from "./actions";
 
 export function AdminForm() {
@@ -26,7 +27,7 @@ export function AdminForm() {
       </div>
       <div>
         <label htmlFor="password" className="label">Contraseña inicial</label>
-        <input id="password" name="password" type="password" className="input" required minLength={8} autoComplete="new-password" />
+        <PasswordInput id="password" name="password" required minLength={8} autoComplete="new-password" />
         <p className="mt-1 text-xs text-[color:var(--muted)]">Mínimo 8 caracteres. Podrá cambiarla desde “Mi cuenta”.</p>
       </div>
       <Message state={state} />

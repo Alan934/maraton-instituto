@@ -517,9 +517,11 @@ function NewStudentForm({
           </div>
         </div>
         <div>
-          <label htmlFor="ns-course" className="label">Curso / división (opcional)</label>
-          <input id="ns-course" className="input" list="courses" value={course} onChange={(e) => setCourse(e.target.value)} placeholder="Ej: 3° A" maxLength={40} />
-          <datalist id="courses">{courses.map((c) => <option key={c} value={c} />)}</datalist>
+          <label htmlFor="ns-course" className="label">Curso (opcional)</label>
+          <select id="ns-course" className="input" value={course} onChange={(e) => setCourse(e.target.value)}>
+            <option value="">Sin curso</option>
+            {courses.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
         <div className="flex flex-wrap gap-2 pt-1">
           <button type="submit" className="btn btn-primary"><UserPlus className="size-4" /> Dar de alta y registrar</button>

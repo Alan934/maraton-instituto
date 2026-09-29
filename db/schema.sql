@@ -72,3 +72,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS scans_student_stop_key
 CREATE INDEX IF NOT EXISTS scans_scanned_at_idx ON scans (scanned_at);
 CREATE INDEX IF NOT EXISTS scans_scanned_by_idx ON scans (scanned_by);
 CREATE INDEX IF NOT EXISTS scans_stop_idx ON scans (stop_id);
+
+-- Lista de cursos que administra el superadmin; los alumnos eligen de esta lista.
+CREATE TABLE IF NOT EXISTS courses (
+  id         serial PRIMARY KEY,
+  name       text        NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  created_by integer     REFERENCES users (id) ON DELETE SET NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS courses_name_key ON courses (lower(name));
+-- Incorpora los cursos que ya estaban escritos en los alumnos.
+INSERT INTO courses (name)
+  SELECT DISTINCT trim(course) FROM students WHERE course IS NOT NULL AND trim(course) <> ''
+  ON CONFLICT DO NOTHING;

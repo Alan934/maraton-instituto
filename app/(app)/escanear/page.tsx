@@ -11,7 +11,7 @@ export default async function ScanPage() {
   const user = await getCurrentUser();
   const [stops, courseRows] = await Promise.all([
     query<{ id: number; position: number; name: string }>(`SELECT id, position, name FROM stops WHERE active ORDER BY position`),
-    query<{ course: string }>(`SELECT DISTINCT course FROM students WHERE course IS NOT NULL AND course <> '' ORDER BY course`),
+    query<{ course: string }>(`SELECT name AS course FROM courses ORDER BY name`),
   ]);
 
   return (

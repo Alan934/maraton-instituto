@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { KeyRound, UserCheck, UserX } from "lucide-react";
 import { ConfirmButton } from "@/components/confirm-button";
+import { PasswordInput } from "@/components/password-input";
 import { requireSuperadmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { formatDateTime } from "@/lib/time";
@@ -67,9 +68,9 @@ export default async function AdminsPage() {
                   <summary className="flex w-fit cursor-pointer items-center gap-1.5 text-sm font-bold text-brand-600">
                     <KeyRound className="size-3.5" /> Cambiar contraseña
                   </summary>
-                  <form action={resetPassword} className="mt-3 flex flex-wrap gap-2">
+                  <form action={resetPassword} className="mt-3 flex flex-wrap items-start gap-2">
                     <input type="hidden" name="id" value={u.id} />
-                    <input name="password" type="password" minLength={8} required className="input !w-64" placeholder="Nueva contraseña (mín. 8)" autoComplete="new-password" aria-label="Nueva contraseña" />
+                    <div className="w-64 max-w-full"><PasswordInput name="password" minLength={8} required placeholder="Nueva contraseña (mín. 8)" autoComplete="new-password" aria-label="Nueva contraseña" /></div>
                     <button className="btn btn-primary btn-sm">Guardar</button>
                   </form>
                 </details>

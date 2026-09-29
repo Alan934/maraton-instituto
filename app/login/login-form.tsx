@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Loader2, LogIn } from "lucide-react";
+import { PasswordInput } from "@/components/password-input";
 import { login, type LoginState } from "./actions";
 
 export function LoginForm() {
@@ -17,7 +18,7 @@ export function LoginForm() {
       </div>
       <div>
         <label htmlFor="password" className="label">Contraseña</label>
-        <input id="password" name="password" type="password" className="input" autoComplete="current-password" required />
+        <PasswordInput id="password" name="password" autoComplete="current-password" required />
       </div>
       {state.error && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{state.error}</p>

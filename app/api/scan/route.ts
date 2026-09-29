@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import { resolveCourse } from "@/lib/courses";
 import { parseDni } from "@/lib/dni";
 import { registerScan } from "@/lib/scan";
 
@@ -33,7 +34,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await registerScan({ ...parsed.data, dni }, user.id);
+    const body = parsed.data;
+    if (body.newStudent) body.newStudent.course = await resolveCourse(body.newStudent.course);
+    const result = await registerScan({ ...body, dni }, user.id);
     return NextResponse.json(result);
   } catch (err) {
     console.error("scan error", err);

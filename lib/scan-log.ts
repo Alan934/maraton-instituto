@@ -1,6 +1,7 @@
 import "server-only";
 import { query } from "./db";
 import { TIME_ZONE } from "./config";
+import { searchStudentIds } from "./student-search";
 
 export type LogFilters = {
   q?: string;
@@ -28,7 +29,7 @@ export type LogRow = {
   deletedBy: string | null;
 };
 
-export function buildWhere(f: LogFilters) {
+export async function buildWhere(f: LogFilters) {
   const where: string[] = [];
   const params: unknown[] = [];
   const add = (sql: string, value: unknown) => {
@@ -41,16 +42,7 @@ export function buildWhere(f: LogFilters) {
   if (f.stopId) add("sc.stop_id = ?", f.stopId);
   if (f.date && /^\d{4}-\d{2}-\d{2}$/.test(f.date)) add(`(sc.scanned_at AT TIME ZONE '${TIME_ZONE}')::date = ?::date`, f.date);
   if (f.q?.trim()) {
-    const q = f.q.trim();
-    const digits = q.replace(/\D/g, "");
-    params.push(`%${q}%`);
-    const nameParam = `$${params.length}`;
-    let cond = `(s.last_name || ' ' || s.first_name ILIKE ${nameParam} OR s.first_name || ' ' || s.last_name ILIKE ${nameParam}`;
-    if (digits.length >= 3) {
-      params.push(`%${digits}%`);
-      cond += ` OR s.dni LIKE $${params.length}`;
-    }
-    where.push(cond + ")");
+    add("s.id = ANY(?::int[])", await searchStudentIds(f.q));
   }
   return { sql: where.join(" AND "), params };
 }
@@ -63,7 +55,7 @@ const FROM = `
   LEFT JOIN users du ON du.id = sc.deleted_by`;
 
 export async function getScanLog(f: LogFilters, limit: number, offset: number) {
-  const { sql, params } = buildWhere(f);
+  const { sql, params } = await buildWhere(f);
   const [rows, count] = await Promise.all([
     query(
       `SELECT sc.id, sc.scanned_at, s.id AS student_id, s.first_name, s.last_name, s.dni, s.course,

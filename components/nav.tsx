@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, ClipboardList, Flag, GraduationCap, ScanLine, ShieldCheck, type LucideIcon } from "lucide-react";
+import { BarChart3, ClipboardList, Flag, GraduationCap, Layers, ScanLine, ShieldCheck, type LucideIcon } from "lucide-react";
 
 type Item = { href: string; label: string; icon: LucideIcon; superOnly?: boolean };
 
@@ -11,6 +11,7 @@ const ITEMS: Item[] = [
   { href: "/estadisticas", label: "Estadísticas", icon: BarChart3 },
   { href: "/registros", label: "Registros", icon: ClipboardList },
   { href: "/alumnos", label: "Alumnos", icon: GraduationCap },
+  { href: "/cursos", label: "Cursos", icon: Layers, superOnly: true },
   { href: "/paradas", label: "Paradas", icon: Flag, superOnly: true },
   { href: "/admins", label: "Administradores", icon: ShieldCheck, superOnly: true },
 ];

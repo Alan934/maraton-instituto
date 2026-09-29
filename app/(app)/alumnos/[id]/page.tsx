@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 import { formatDni } from "@/lib/dni";
 import { formatDateTime, formatDuration } from "@/lib/time";
-import { deleteStudent, updateStudent } from "../actions";
+import { deleteStudent, removeStage, resetStages, updateStudent } from "../actions";
 
 export const metadata: Metadata = { title: "Alumno" };
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   );
   if (!student) notFound();
 
-  const [timeline, anyScans] = await Promise.all([
+  const [timeline, anyScans, courses] = await Promise.all([
     query<{
       stop_id: number; position: number; name: string; active: boolean; scan_id: number | null; scanned_at: Date | null;
       scanned_by: string | null; method: string | null; skipped_previous: boolean | null;
@@ -41,6 +41,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       [id],
     ),
     queryOne("SELECT 1 AS x FROM scans WHERE student_id = $1 LIMIT 1", [id]),
+    query<{ name: string }>("SELECT name FROM courses ORDER BY name"),
   ]);
 
   const passed = timeline.filter((t) => t.scanned_at);
@@ -80,17 +81,27 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                   <span className={`absolute -left-[2.15rem] grid size-6 place-items-center rounded-full ${t.scanned_at ? "bg-emerald-600 text-white" : "bg-brand-100 text-brand-400"}`}>
                     {t.scanned_at ? <Check className="size-3.5" /> : <Circle className="size-3" />}
                   </span>
-                  <p className="font-bold">
+                  <p className="flex flex-wrap items-center gap-x-1 font-bold">
                     Parada {t.position} · {t.name}
                     {!t.active && <span className="badge ml-2">Desactivada</span>}
                     {t.skipped_previous && <span className="badge badge-sun ml-2">salteó paradas</span>}
                   </p>
                   {t.scanned_at ? (
+                    <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm text-[color:var(--muted)]">
                       <span className="num font-semibold text-navy-900">{formatDateTime(t.scanned_at)}</span>
                       {t.scanned_by ? ` · cargó ${t.scanned_by}` : ""}
                       {prev && t.scanned_at > prev ? ` · +${formatDuration((t.scanned_at.getTime() - prev.getTime()) / 1000)} desde la anterior` : ""}
                     </p>
+                    {isSuper && t.scan_id && (
+                      <form action={removeStage}>
+                        <input type="hidden" name="scanId" value={t.scan_id} />
+                        <ConfirmButton message={`¿Quitar la Parada ${t.position} a ${student.last_name}, ${student.first_name}?`} title="Quitar etapa">
+                          <Trash2 className="size-4" /> Quitar
+                        </ConfirmButton>
+                      </form>
+                    )}
+                    </div>
                   ) : (
                     <p className="text-sm text-[color:var(--muted)]">Pendiente</p>
                   )}
@@ -101,6 +112,16 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         )}
       </section>
 
+      {isSuper && passed.length > 0 && (
+        <form action={resetStages} className="card card-pad flex flex-wrap items-center justify-between gap-3">
+          <input type="hidden" name="id" value={student.id} />
+          <p className="text-sm text-[color:var(--muted)]">Quitar todas las etapas y dejar al alumno sin iniciar.</p>
+          <ConfirmButton message={`¿Quitar las ${passed.length} etapas de ${student.last_name}, ${student.first_name}?`}>
+            <Trash2 className="size-4" /> Reiniciar recorrido
+          </ConfirmButton>
+        </form>
+      )}
+
       {isSuper && (
         <section className="card card-pad space-y-4">
           <h2 className="text-lg font-extrabold">Editar datos</h2>
@@ -109,7 +130,10 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <div><label htmlFor="e-dni" className="label">DNI</label><input id="e-dni" name="dni" defaultValue={student.dni} className="input num" required /></div>
             <div><label htmlFor="e-last" className="label">Apellido</label><input id="e-last" name="lastName" defaultValue={student.last_name} className="input" required /></div>
             <div><label htmlFor="e-first" className="label">Nombre</label><input id="e-first" name="firstName" defaultValue={student.first_name} className="input" required /></div>
-            <div><label htmlFor="e-course" className="label">Curso</label><input id="e-course" name="course" defaultValue={student.course ?? ""} className="input" /></div>
+            <div><label htmlFor="e-course" className="label">Curso</label><select id="e-course" name="course" defaultValue={student.course ?? ""} className="input">
+            <option value="">Sin curso</option>
+            {courses.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+          </select></div>
             <div className="flex items-end"><button className="btn btn-primary">Guardar</button></div>
           </form>
           {!anyScans && (

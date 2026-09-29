@@ -12,6 +12,29 @@ type Props = {
 
 const NATIVE_FORMATS = ["code_128", "code_39", "code_93", "itf", "ean_13", "ean_8", "codabar", "pdf417", "qr_code", "upc_a", "upc_e"];
 const REPEAT_MS = 3500;
+const CONFIRM_MS = 700;
+
+/**
+ * Con varios códigos en cuadro elige el que está más cerca del centro (donde apunta la mira)
+ * y descarta los que quedan claramente fuera de la franja de lectura.
+ */
+function pickCentered<T extends { boundingBox: DOMRectReadOnly }>(codes: T[], width: number, height: number): T | null {
+  if (!width || !height) return codes[0] ?? null;
+  let best: T | null = null;
+  let bestDist = Infinity;
+  for (const c of codes) {
+    const b = c.boundingBox;
+    const dx = (b.x + b.width / 2 - width / 2) / width;
+    const dy = (b.y + b.height / 2 - height / 2) / height;
+    if (Math.abs(dy) > 0.25 || Math.abs(dx) > 0.4) continue;
+    const dist = dx * dx + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = c;
+    }
+  }
+  return best;
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function CameraScanner({ onDetect, paused = false }: Props) {
@@ -30,9 +53,16 @@ export function CameraScanner({ onDetect, paused = false }: Props) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let last = { text: "", at: 0 };
 
+    // Un código se acepta recién cuando se lee igual dos veces seguidas: evita tomar uno equivocado
+    // cuando hay varios en cuadro y la cámara pasa de uno a otro.
+    let candidate = { text: "", at: 0 };
     const emit = (text: string) => {
       const now = Date.now();
       if (pausedRef.current || !text) return;
+      if (candidate.text !== text || now - candidate.at > CONFIRM_MS) {
+        candidate = { text, at: now };
+        return;
+      }
       if (text === last.text && now - last.at < REPEAT_MS) return;
       last = { text, at: now };
       onDetectRef.current(text);
@@ -64,8 +94,9 @@ export function CameraScanner({ onDetect, paused = false }: Props) {
             if (cancelled) return;
             try {
               if (video.readyState >= 2) {
-                const codes = await detector.detect(video);
-                if (codes.length) emit(codes[0].rawValue);
+                const codes: { rawValue: string; boundingBox: DOMRectReadOnly }[] = await detector.detect(video);
+                const target = pickCentered(codes, video.videoWidth, video.videoHeight);
+                if (target) emit(target.rawValue);
               }
             } catch {
               /* frame inválido, se reintenta */

@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 import { formatDni } from "@/lib/dni";
+import { searchStudentIds } from "@/lib/student-search";
 import { formatTime } from "@/lib/time";
 import { StudentTools } from "./student-tools";
 
@@ -20,16 +21,11 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
 
   const where: string[] = ["s.active"];
   const params: unknown[] = [];
-  if (sp.q?.trim()) {
-    const q = sp.q.trim();
-    params.push(`%${q}%`);
-    let cond = `(s.last_name || ' ' || s.first_name ILIKE $${params.length} OR s.first_name || ' ' || s.last_name ILIKE $${params.length}`;
-    const digits = q.replace(/\D/g, "");
-    if (digits.length >= 3) {
-      params.push(`%${digits}%`);
-      cond += ` OR s.dni LIKE $${params.length}`;
-    }
-    where.push(cond + ")");
+  const q = sp.q?.trim();
+  const matchIds = q ? await searchStudentIds(q) : null;
+  if (matchIds) {
+    params.push(matchIds);
+    where.push(`s.id = ANY($${params.length}::int[])`);
   }
   if (sp.curso) {
     params.push(sp.curso);
@@ -50,11 +46,11 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
     query<{ id: number; dni: string; first_name: string; last_name: string; course: string | null; n: number | null; last_at: Date | null; last_pos: number | null }>(
       `SELECT s.id, s.dni, s.first_name, s.last_name, s.course, prog.n, prog.last_at, prog.last_pos
          FROM students s ${LATERAL} WHERE ${whereSql}
-        ORDER BY s.last_name, s.first_name LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`,
-      params,
+        ORDER BY ${matchIds ? "array_position($" + (params.length + 1) + "::int[], s.id)," : ""} s.last_name, s.first_name LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`,
+      matchIds ? [...params, matchIds] : params,
     ),
     queryOne<{ n: number }>(`SELECT count(*)::int AS n FROM students s ${LATERAL} WHERE ${whereSql}`, params),
-    query<{ course: string }>("SELECT DISTINCT course FROM students WHERE course IS NOT NULL AND course <> '' ORDER BY course"),
+    query<{ course: string }>("SELECT name AS course FROM courses ORDER BY name"),
     queryOne<{ n: number; max: number | null }>("SELECT count(*)::int AS n, max(position) AS max FROM stops WHERE active"),
   ]);
   const total = count?.n ?? 0;
@@ -74,7 +70,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         <p className="text-sm text-[color:var(--muted)]">{total.toLocaleString("es-AR")} alumnos</p>
       </div>
 
-      {isSuper && <StudentTools />}
+      {isSuper && <StudentTools courses={courses.map((c) => c.course)} />}
 
       <form method="get" className="card card-pad grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_auto]">
         <div>
