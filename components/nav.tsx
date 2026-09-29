@@ -1,0 +1,43 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { BarChart3, ClipboardList, Flag, GraduationCap, ScanLine, ShieldCheck, type LucideIcon } from "lucide-react";
+
+type Item = { href: string; label: string; icon: LucideIcon; superOnly?: boolean };
+
+const ITEMS: Item[] = [
+  { href: "/escanear", label: "Escanear", icon: ScanLine },
+  { href: "/estadisticas", label: "Estadísticas", icon: BarChart3 },
+  { href: "/registros", label: "Registros", icon: ClipboardList },
+  { href: "/alumnos", label: "Alumnos", icon: GraduationCap },
+  { href: "/paradas", label: "Paradas", icon: Flag, superOnly: true },
+  { href: "/admins", label: "Administradores", icon: ShieldCheck, superOnly: true },
+];
+
+export function Nav({ isSuperadmin }: { isSuperadmin: boolean }) {
+  const pathname = usePathname();
+  return (
+    <nav aria-label="Principal" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <ul className="flex min-w-max gap-1">
+        {ITEMS.filter((i) => !i.superOnly || isSuperadmin).map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(href + "/");
+          return (
+            <li key={href}>
+              <Link
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
+                  active ? "bg-sun-400 text-navy-950" : "text-brand-100 hover:bg-white/10"
+                }`}
+              >
+                <Icon className="size-4" aria-hidden />
+                {label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
