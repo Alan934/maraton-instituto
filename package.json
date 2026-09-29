@@ -5,12 +5,17 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
-    "db:seed": "node --env-file=.env scripts/seed.mjs",
+    "start": "node scripts/setup.mjs && next start",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+    "db:seed": "node --env-file-if-exists=.env scripts/seed.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.3",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "bcryptjs": "^3.0.3",
@@ -20,15 +25,11 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
     "zod": "^4.6.5"
   },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^26.6.3",
-    "@types/pg": "^8.23.1",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2"
+  "engines": {
+    "node": ">=22"
   }
 }

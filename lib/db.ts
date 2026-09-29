@@ -12,8 +12,18 @@ function createPool() {
   return pool;
 }
 
-export const pool = globalForPg.pgPool ?? createPool();
-if (process.env.NODE_ENV !== "production") globalForPg.pgPool = pool;
+// El pool se crea recién en la primera consulta, así `next build` no necesita DATABASE_URL.
+function getPool() {
+  return (globalForPg.pgPool ??= createPool());
+}
+
+export const pool = new Proxy({} as pg.Pool, {
+  get(_target, prop) {
+    const real = getPool();
+    const value = Reflect.get(real, prop, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
 
 export async function query<T extends pg.QueryResultRow = any>(text: string, params?: unknown[]) {
   const res = await pool.query<T>(text, params);

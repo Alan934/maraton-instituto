@@ -39,40 +39,32 @@ npm install
 cp .env.example .env        # completar DATABASE_URL y los datos del superadmin inicial
 npm run db:migrate          # crea las tablas y fija la zona horaria
 npm run db:seed             # crea el superadmin inicial (SUPERADMIN_* del .env)
-npm run dev
+npm run dev                 # (en producción, `npm start` ya hace el migrate/seed solo)
 ```
 
 Después de entrar por primera vez, cambiá la contraseña en **Mi cuenta**.
 
-## Despliegue en la VPS
+## Despliegue en Coolify
 
-Requisitos: Node.js 20+ y PostgreSQL accesible.
+1. **Nuevo recurso → Application** (repositorio público, o privado con GitHub App / Deploy Key).
+2. **Build Pack:** Nixpacks · **Branch:** `main` · **Base Directory:** `/` · **Static site:** desactivado.
+3. **Ports Exposes:** `3000`.
+4. **Environment Variables** (runtime):
+   - `DATABASE_URL` = cadena de conexión de PostgreSQL
+   - `PORT` = `3000`
+   - `SUPERADMIN_USERNAME`, `SUPERADMIN_PASSWORD`, `SUPERADMIN_FULL_NAME` (solo se usan para crear el primer superadmin)
+   - Opcional: `NIXPACKS_NODE_VERSION` = `22`
+5. **Domains:** `https://maraton.tudominio.com` (con el DNS apuntando a la VPS). Coolify emite el certificado solo.
+6. **Deploy.** Al arrancar, `npm start` ejecuta `scripts/setup.mjs`: aplica el esquema, deja la base en horario de Mendoza y crea el superadmin si no existe ninguno.
 
-```bash
-git clone <repo> && cd maraton-instituto
-npm ci
-# crear .env con DATABASE_URL y SUPERADMIN_* (ver .env.example)
-npm run db:migrate && npm run db:seed
-npm run build
-npm start                    # escucha en el puerto 3000 (PORT=3000)
-```
-
-Recomendado: ejecutarlo con `pm2` o `systemd` y publicarlo detrás de **nginx/Caddy con HTTPS**.
+Notas:
 
 - **HTTPS es obligatorio para usar la cámara del celular** (los navegadores bloquean la cámara en sitios HTTP) y para la cookie de sesión segura.
-- El reverse proxy debe enviar `Host` y `X-Forwarded-For`. Ejemplo nginx:
+- Dejar **una sola réplica**: el límite de intentos de login se guarda en memoria.
+- Después de entrar por primera vez, cambiar la contraseña en **Mi cuenta** y borrar `SUPERADMIN_PASSWORD` de las variables.
+- Si se sirve sin HTTPS por algún motivo, se puede definir `INSECURE_COOKIES=1` (no recomendado).
 
-```nginx
-location / {
-  proxy_pass http://127.0.0.1:3000;
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-For $remote_addr;
-  proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-- Solo si por algún motivo se sirve sin HTTPS, se puede definir `INSECURE_COOKIES=1` (no recomendado).
-- El límite de intentos de login está en memoria: usar **una sola instancia** del proceso.
+Sin Coolify (VPS a mano): `npm ci && npm run build && npm start` con las mismas variables, detrás de nginx/Caddy con HTTPS (que envíe `Host` y `X-Forwarded-For`).
 
 ## Lector de código de barras (“pistolita”)
 
