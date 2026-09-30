@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Flag, Medal, Timer, Trophy, UserCheck, Users } from "lucide-react";
+import { AlertTriangle, Camera, Flag, Gauge, Hand, Hourglass, Medal, ScanLine, Timer, Trophy, UserCheck, Users, Zap } from "lucide-react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requireUser } from "@/lib/auth";
 import { getStats } from "@/lib/stats";
@@ -18,6 +18,12 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
   const { overview: o, stops, timeline, courses, finishers, admins, recent } = stats;
   const maxBucket = Math.max(1, ...timeline.buckets.map((b) => b.count));
   const maxPassed = Math.max(1, ...stops.map((s) => s.passed));
+  const slowest = stops.reduce<(typeof stops)[number] | null>(
+    (m, s) => (s.avgFromPrevSeconds != null && (!m || s.avgFromPrevSeconds > m.avgFromPrevSeconds!) ? s : m), null);
+  const maxAvg = Math.max(1, ...stops.map((s) => s.avgFromPrevSeconds ?? 0));
+  const methodTotal = o.methods.scanner + o.methods.camera + o.methods.manual;
+  const skipPct = pct(o.skippedScans, o.totalScans);
+  const seg = (n: number) => `${pct(n, o.totalStudents)}%`;
 
   return (
     <div className="space-y-6">
@@ -31,28 +37,101 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         <AutoRefresh seconds={10} />
       </div>
 
+      {/* Progreso general */}
+      <section className="card card-pad">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-extrabold">Progreso general</h2>
+            <p className="text-sm text-[color:var(--muted)]">Cómo se reparten los {o.totalStudents.toLocaleString("es-AR")} alumnos registrados.</p>
+          </div>
+          <p className="num text-4xl font-extrabold leading-none text-brand-600">
+            {pct(o.finished, o.totalStudents)}%<span className="ml-1.5 text-sm font-bold text-[color:var(--muted)]">completó</span>
+          </p>
+        </div>
+        <div
+          className="mt-4 flex h-6 overflow-hidden rounded-full bg-brand-100"
+          role="img"
+          aria-label={`${o.finished} completaron, ${o.inProgress} en curso, ${o.notStarted} sin empezar`}
+        >
+          <div className="h-full bg-sun-400 transition-all" style={{ width: seg(o.finished) }} title="Completaron" />
+          <div className="h-full bg-brand-500 transition-all" style={{ width: seg(o.inProgress) }} title="En curso" />
+        </div>
+        <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+          <Legend color="bg-sun-400" label="Completaron" value={o.finished} note="pasaron por la última parada" />
+          <Legend color="bg-brand-500" label="En curso" value={o.inProgress} note="ya empezaron, aún no terminan" />
+          <Legend color="bg-brand-100 ring-1 ring-brand-200" label="Sin empezar" value={o.notStarted} note="todavía sin ningún registro" />
+        </ul>
+      </section>
+
       {/* Indicadores */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Kpi icon={Users} label="Alumnos registrados" value={o.totalStudents} />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi icon={Users} label="Alumnos registrados" value={o.totalStudents} hint="Total en el padrón" />
         <Kpi icon={UserCheck} label="Participando" value={o.started} hint={`${pct(o.started, o.totalStudents)}% del total`} tone="brand" />
         <Kpi icon={Trophy} label="Completaron" value={o.finished} hint={`${pct(o.finished, o.totalStudents)}% del total`} tone="sun" />
-        <Kpi icon={Flag} label="Registros de paradas" value={o.totalScans} hint={o.lastScanAt ? `Último: ${formatTime(o.lastScanAt)}` : "Sin registros aún"} />
         <Kpi
           icon={AlertTriangle}
           label="Paradas salteadas"
           value={o.skippedScans}
-          hint={o.skippedScans ? "Cargados con alerta" : "Ninguna"}
+          hint={o.skippedScans ? `${skipPct}% de los registros, con alerta` : "Ninguna"}
           tone={o.skippedScans ? "warn" : undefined}
-          className="col-span-2 lg:col-span-1"
+        />
+        <Kpi icon={Flag} label="Registros totales" value={o.totalScans} hint={o.lastScanAt ? `Último: ${formatTime(o.lastScanAt)}` : "Sin registros aún"} />
+        <Kpi icon={Zap} label="Ritmo (últ. 15 min)" value={o.scansLast15} hint={`${o.scansLast15 * 4} registros/hora al ritmo actual`} />
+        <Kpi icon={Gauge} label="Última hora" value={o.scansLastHour} hint="registros en los últimos 60 min" />
+        <Kpi
+          icon={Hourglass}
+          label="Tiempo promedio"
+          text={o.finishTimes ? formatDuration(o.finishTimes.avg) : "—"}
+          hint={o.finishTimes ? `Mediana ${formatDuration(o.finishTimes.median)}` : "Aún nadie terminó"}
         />
       </section>
+
+      {/* Tiempos de llegada + método */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="card card-pad">
+          <h2 className="mb-1 text-lg font-extrabold">Tiempos de los que completaron</h2>
+          <p className="mb-4 text-sm text-[color:var(--muted)]">Desde su primera parada hasta la última.</p>
+          {o.finishTimes ? (
+            <dl className="grid grid-cols-2 gap-3">
+              <TimeBox label="Más rápido" value={formatDuration(o.finishTimes.fastest)} tone="sun" />
+              <TimeBox label="Más lento" value={formatDuration(o.finishTimes.slowest)} />
+              <TimeBox label="Promedio" value={formatDuration(o.finishTimes.avg)} />
+              <TimeBox label="Mediana" value={formatDuration(o.finishTimes.median)} hint="la mitad tardó menos" />
+            </dl>
+          ) : (
+            <p className="py-8 text-center text-sm text-[color:var(--muted)]">Se mostrará cuando el primer alumno complete el recorrido.</p>
+          )}
+        </section>
+
+        <section className="card card-pad">
+          <h2 className="mb-1 text-lg font-extrabold">Cómo se cargan los registros</h2>
+          <p className="mb-4 text-sm text-[color:var(--muted)]">Método usado por los administradores.</p>
+          {methodTotal === 0 ? (
+            <p className="py-8 text-center text-sm text-[color:var(--muted)]">Sin registros aún.</p>
+          ) : (
+            <div className="space-y-3">
+              <MethodRow icon={ScanLine} label="Lector de códigos" n={o.methods.scanner} total={methodTotal} />
+              <MethodRow icon={Camera} label="Cámara" n={o.methods.camera} total={methodTotal} />
+              <MethodRow icon={Hand} label="Manual (DNI)" n={o.methods.manual} total={methodTotal} />
+            </div>
+          )}
+        </section>
+      </div>
 
       {/* Progreso por parada */}
       <section className="card card-pad">
         <h2 className="mb-1 text-lg font-extrabold">Alumnos por parada</h2>
         <p className="mb-4 text-sm text-[color:var(--muted)]">
-          “Pasaron” es el total que registró esa parada. “Su última parada” son los que hoy están ahí como último registro.
+          El número grande es cuántos registraron esa parada. Debajo, cuántos están ahí ahora y cuánto tardan en llegar desde la anterior.
         </p>
+        {slowest && slowest.avgFromPrevSeconds != null && stops.length > 1 && (
+          <p className="mb-4 flex items-start gap-2 rounded-xl bg-sun-100 px-3 py-2 text-sm font-semibold text-navy-950">
+            <Hourglass className="mt-0.5 size-4 shrink-0" />
+            <span>
+              Tramo más lento: hasta <b>{slowest.name}</b> (parada {slowest.position}), con {formatDuration(slowest.avgFromPrevSeconds)} de promedio.
+            </span>
+          </p>
+        )}
         {stops.length === 0 ? (
           <p className="text-sm text-[color:var(--muted)]">No hay paradas configuradas.</p>
         ) : (
@@ -76,9 +155,21 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                     <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-sun-400" style={{ width: `${(s.passed / maxPassed) * 100}%` }} />
                   </div>
                   <p className="mt-1 text-xs text-[color:var(--muted)]">
-                    <b className="num text-navy-900">{s.current}</b> con esta como su última parada
+                    <b className="num text-navy-900">{s.current}</b> están aquí ahora
                     {s.firstAt && <> · primero {formatTime(s.firstAt)} · último {formatTime(s.lastAt!)}</>}
                   </p>
+                  {s.avgFromPrevSeconds != null && (
+                    <div className="mt-1.5 flex items-center gap-2" title="Tiempo promedio desde la parada anterior">
+                      <Timer className="size-3 shrink-0 text-[color:var(--muted)]" />
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-brand-100">
+                        <div
+                          className={`h-full rounded-full ${slowest?.id === s.id ? "bg-sun-500" : "bg-navy-900/40"}`}
+                          style={{ width: `${(s.avgFromPrevSeconds / maxAvg) * 100}%` }}
+                        />
+                      </div>
+                      <span className="num w-16 text-right text-xs font-bold">{formatDuration(s.avgFromPrevSeconds)}</span>
+                    </div>
+                  )}
                 </div>
               </li>
             ))}
@@ -169,7 +260,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                       <td className="font-bold">{c.course}</td>
                       <td className="num">{c.total}</td>
                       <td className="num">{c.started} <span className="text-xs text-[color:var(--muted)]">({pct(c.started, c.total)}%)</span></td>
-                      <td className="num">{c.finished}</td>
+                      <td className="num">{c.finished} <span className="text-xs text-[color:var(--muted)]">({pct(c.finished, c.total)}%)</span></td>
                       <td className="num">{c.avgStops.toFixed(1)} / {o.stopCount}</td>
                       <td>
                         <div className="h-2.5 overflow-hidden rounded-full bg-brand-100">
@@ -240,12 +331,50 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
   );
 }
 
+function Legend({ color, label, value, note }: { color: string; label: string; value: number; note: string }) {
+  return (
+    <li className="flex items-start gap-2.5 rounded-xl bg-brand-50 px-3 py-2">
+      <span className={`mt-1 size-3 shrink-0 rounded-full ${color}`} />
+      <div>
+        <p className="font-bold"><span className="num">{value.toLocaleString("es-AR")}</span> {label}</p>
+        <p className="text-xs text-[color:var(--muted)]">{note}</p>
+      </div>
+    </li>
+  );
+}
+
+function TimeBox({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "sun" }) {
+  return (
+    <div className={`rounded-xl p-3 ${tone === "sun" ? "bg-sun-300 text-navy-950" : "bg-brand-50"}`}>
+      <dt className="text-xs font-bold uppercase tracking-wide text-[color:var(--muted)]">{label}</dt>
+      <dd className="num mt-1 text-2xl font-extrabold leading-none">{value}</dd>
+      {hint && <p className="mt-1 text-xs text-[color:var(--muted)]">{hint}</p>}
+    </div>
+  );
+}
+
+function MethodRow({ icon: Icon, label, n, total }: { icon: React.ComponentType<{ className?: string }>; label: string; n: number; total: number }) {
+  const p = pct(n, total);
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="flex items-center gap-2 font-bold"><Icon className="size-4 text-brand-600" /> {label}</span>
+        <span className="num font-bold">{n} <span className="text-xs font-semibold text-[color:var(--muted)]">({p}%)</span></span>
+      </div>
+      <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-brand-100">
+        <div className="h-full rounded-full bg-brand-500" style={{ width: `${p}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function Kpi({
-  icon: Icon, label, value, hint, tone, className = "",
+  icon: Icon, label, value, text, hint, tone, className = "",
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  value: number;
+  value?: number;
+  text?: string;
   hint?: string;
   tone?: "brand" | "sun" | "warn";
   className?: string;
@@ -258,7 +387,7 @@ function Kpi({
         <Icon className="size-4 opacity-80" />
         <p className={`text-xs font-bold uppercase tracking-wide ${sub}`}>{label}</p>
       </div>
-      <p className="num mt-1 text-3xl font-extrabold leading-none">{value.toLocaleString("es-AR")}</p>
+      <p className="num mt-1 text-3xl font-extrabold leading-none">{text ?? (value ?? 0).toLocaleString("es-AR")}</p>
       {hint && <p className={`mt-1.5 text-xs font-semibold ${sub}`}>{hint}</p>}
     </div>
   );

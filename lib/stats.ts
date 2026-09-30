@@ -19,6 +19,11 @@ export type Overview = {
   skippedScans: number;
   lastScanAt: string | null;
   stopCount: number;
+  inProgress: number;
+  scansLast15: number;
+  scansLastHour: number;
+  methods: { scanner: number; camera: number; manual: number };
+  finishTimes: { avg: number; median: number; fastest: number; slowest: number } | null;
 };
 
 export type StopStat = {
@@ -74,7 +79,11 @@ export async function getStats(dateParam?: string | null): Promise<Stats> {
   const [overviewRow, stopRows, dateRows, courseRows, finisherRows, adminRows, recentRows] = await Promise.all([
     queryOne(`
       WITH vs AS (${VALID_SCANS}),
-      last_stop AS (SELECT id FROM stops WHERE active ORDER BY position DESC LIMIT 1)
+      last_stop AS (SELECT id FROM stops WHERE active ORDER BY position DESC LIMIT 1),
+      fin AS (
+        SELECT extract(epoch FROM f.scanned_at - b.t)::float AS d
+          FROM vs f JOIN (SELECT student_id, min(scanned_at) AS t FROM vs GROUP BY student_id) b ON b.student_id = f.student_id
+         WHERE f.stop_id = (SELECT id FROM last_stop))
       SELECT
         (SELECT count(*) FROM students WHERE active)::int AS total_students,
         (SELECT count(DISTINCT student_id) FROM vs)::int AS started,
@@ -82,7 +91,16 @@ export async function getStats(dateParam?: string | null): Promise<Stats> {
         (SELECT count(*) FROM vs)::int AS total_scans,
         (SELECT count(*) FROM vs WHERE skipped_previous)::int AS skipped_scans,
         (SELECT max(scanned_at) FROM vs) AS last_scan_at,
-        (SELECT count(*) FROM stops WHERE active)::int AS stop_count`),
+        (SELECT count(*) FROM stops WHERE active)::int AS stop_count,
+        (SELECT count(*) FROM vs WHERE scanned_at > now() - interval '15 minutes')::int AS scans_15,
+        (SELECT count(*) FROM vs WHERE scanned_at > now() - interval '60 minutes')::int AS scans_60,
+        (SELECT count(*) FROM vs WHERE method = 'scanner')::int AS m_scanner,
+        (SELECT count(*) FROM vs WHERE method = 'camera')::int AS m_camera,
+        (SELECT count(*) FROM vs WHERE method = 'manual')::int AS m_manual,
+        (SELECT avg(d) FROM fin) AS fin_avg,
+        (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY d) FROM fin) AS fin_median,
+        (SELECT min(d) FROM fin) AS fin_min,
+        (SELECT max(d) FROM fin) AS fin_max`),
     query(`
       WITH vs AS (${VALID_SCANS}),
       seq AS (
@@ -186,6 +204,14 @@ export async function getStats(dateParam?: string | null): Promise<Stats> {
       skippedScans: o.skipped_scans,
       lastScanAt: iso(o.last_scan_at),
       stopCount: o.stop_count,
+      inProgress: Math.max(0, o.started - o.finished),
+      scansLast15: o.scans_15,
+      scansLastHour: o.scans_60,
+      methods: { scanner: o.m_scanner, camera: o.m_camera, manual: o.m_manual },
+      finishTimes:
+        o.fin_avg == null
+          ? null
+          : { avg: Number(o.fin_avg), median: Number(o.fin_median), fastest: Number(o.fin_min), slowest: Number(o.fin_max) },
     },
     stops: stopRows.map((r) => ({
       id: r.id,
