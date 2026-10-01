@@ -83,6 +83,8 @@ body {
   .badge-ok { background: #d9f3e6; color: #11734a; }
   .badge-bad { background: #fbe0e0; color: #a12020; }
   .table-wrap { overflow-x: auto; }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   table.tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
   table.tbl th {
     text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;

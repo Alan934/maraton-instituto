@@ -13,21 +13,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 bg-navy-900 text-white shadow-md">
         <div className="h-1 bg-gradient-to-r from-brand-500 via-brand-500 to-sun-400" style={{ backgroundSize: "100% 100%" }} />
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-6">
-          <div className="flex items-center justify-between gap-3">
-            <Link href="/escanear" className="flex items-center gap-2.5">
-              <LogoMark size={30} />
-              <span className="text-base font-extrabold tracking-tight">{APP_NAME}</span>
-            </Link>
-            <div className="flex items-center gap-1 sm:hidden">
-              <UserMenu name={user.fullName} role={user.role} />
-            </div>
-          </div>
-          <div className="min-w-0 sm:flex-1">
-            <Nav isSuperadmin={user.role === "superadmin"} />
-          </div>
-          <div className="hidden items-center gap-1 sm:flex">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2.5 lg:flex-nowrap lg:py-3">
+          <Link href="/escanear" className="flex shrink-0 items-center gap-2.5">
+            <LogoMark size={32} />
+            <span className="text-base font-extrabold tracking-tight">{APP_NAME}</span>
+          </Link>
+          <div className="flex items-center gap-1 lg:order-3 lg:border-l lg:border-white/15 lg:pl-4">
             <UserMenu name={user.fullName} role={user.role} />
+          </div>
+          <div className="w-full min-w-0 lg:order-2 lg:w-auto lg:flex-1">
+            <Nav isSuperadmin={user.role === "superadmin"} />
           </div>
         </div>
       </header>

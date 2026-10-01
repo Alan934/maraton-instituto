@@ -61,7 +61,7 @@ export default async function LogPage({ searchParams }: { searchParams: Promise<
         )}
       </div>
 
-      <form method="get" className="card card-pad grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
+      <form method="get" className="card card-pad grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
         <div>
           <label htmlFor="q" className="label">Alumno o DNI</label>
           <input id="q" name="q" defaultValue={sp.q} className="input" placeholder="Apellido, nombre o DNI" />
@@ -84,10 +84,10 @@ export default async function LogPage({ searchParams }: { searchParams: Promise<
         ) : <div className="hidden lg:block" />}
         <div>
           <label htmlFor="fecha" className="label">Fecha</label>
-          <input id="fecha" name="fecha" type="date" defaultValue={sp.fecha} className="input" />
+          <input id="fecha" name="fecha" type="date" defaultValue={sp.fecha} className="input min-w-0 appearance-none" />
         </div>
-        <div className="flex items-end gap-2">
-          <button className="btn btn-primary" type="submit"><Search className="size-4" /> Filtrar</button>
+        <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-1">
+          <button className="btn btn-primary flex-1 lg:flex-none" type="submit"><Search className="size-4" /> Filtrar</button>
           <Link href="/registros" className="btn btn-ghost">Limpiar</Link>
         </div>
         {isSuper && (
@@ -98,7 +98,49 @@ export default async function LogPage({ searchParams }: { searchParams: Promise<
         )}
       </form>
 
-      <div className="card overflow-hidden">
+      <ul className="space-y-3 md:hidden">
+        {rows.length === 0 && (
+          <li className="card card-pad py-10 text-center text-[color:var(--muted)]">No hay registros con estos filtros.</li>
+        )}
+        {rows.map((r) => (
+          <li key={r.id} className={`card card-pad space-y-2 ${r.deletedAt ? "bg-red-50/60 text-[color:var(--muted)]" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link href={`/alumnos/${r.studentId}`} className={`block break-words font-bold hover:underline ${r.deletedAt ? "line-through" : ""}`}>{r.studentName}</Link>
+                <span className="num text-xs text-[color:var(--muted)]">
+                  DNI {formatDni(r.dni)}{r.course ? ` · ${r.course}` : ""}
+                </span>
+              </div>
+              <span className="badge shrink-0">{METHOD_LABEL[r.method]}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <span className="font-semibold">Parada {r.stopPosition}</span>
+              <span className="text-xs text-[color:var(--muted)]">{r.stopName}</span>
+              {r.skippedPrevious && <span className="badge badge-sun">salteó paradas</span>}
+            </div>
+            <div className="flex items-center justify-between gap-3 text-xs text-[color:var(--muted)]">
+              <span className="num font-semibold">{formatDateTime(r.scannedAt)}</span>
+              {isSuper && <span className="truncate">Cargó: {r.adminName ?? "—"}</span>}
+            </div>
+            {isSuper && (
+              <div>
+                {r.deletedAt ? (
+                  <span className="badge badge-bad max-w-full" title={`Anulado por ${r.deletedBy ?? "—"}`}>Anulado {formatDateTime(r.deletedAt)}</span>
+                ) : (
+                  <form action={voidScan}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <ConfirmButton message={`¿Anular el registro de ${r.studentName} en la Parada ${r.stopPosition}?`} title="Anular registro">
+                      <Trash2 className="size-4" /><span className="sr-only">Anular</span>
+                    </ConfirmButton>
+                  </form>
+                )}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <div className="card hidden overflow-hidden md:block">
         <div className="table-wrap">
           <table className="tbl">
             <thead>
