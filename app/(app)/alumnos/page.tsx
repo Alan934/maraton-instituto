@@ -6,7 +6,7 @@ import { query, queryOne } from "@/lib/db";
 import { formatDni } from "@/lib/dni";
 import { searchStudentIds } from "@/lib/student-search";
 import { formatTime } from "@/lib/time";
-import { StudentTools } from "./student-tools";
+import { ResetTools, StartMarathon, StudentTools } from "./student-tools";
 
 export const metadata: Metadata = { title: "Alumnos" };
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
        WHERE sc.student_id = s.id AND sc.deleted_at IS NULL) prog ON true`;
   const whereSql = where.join(" AND ");
 
-  const [rows, count, courses, stopCount] = await Promise.all([
+  const [rows, count, courses, stopCount, start] = await Promise.all([
     query<{ id: number; dni: string; first_name: string; last_name: string; course: string | null; n: number | null; last_at: Date | null; last_pos: number | null }>(
       `SELECT s.id, s.dni, s.first_name, s.last_name, s.course, prog.n, prog.last_at, prog.last_pos
          FROM students s ${LATERAL} WHERE ${whereSql}
@@ -52,6 +52,15 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
     queryOne<{ n: number }>(`SELECT count(*)::int AS n FROM students s ${LATERAL} WHERE ${whereSql}`, params),
     query<{ course: string }>("SELECT name AS course FROM courses ORDER BY name"),
     queryOne<{ n: number; max: number | null }>("SELECT count(*)::int AS n, max(position) AS max FROM stops WHERE active"),
+    isSuper
+      ? queryOne<{ pending: number; first_stop: string | null; active_scans: number }>(
+          `SELECT (SELECT name FROM stops WHERE active ORDER BY position LIMIT 1) AS first_stop,
+                  (SELECT count(*)::int FROM students s WHERE s.active AND NOT EXISTS (
+                     SELECT 1 FROM scans sc JOIN stops p ON p.id = sc.stop_id AND p.active
+                      WHERE sc.student_id = s.id AND sc.deleted_at IS NULL)) AS pending,
+                  (SELECT count(*)::int FROM scans WHERE deleted_at IS NULL) AS active_scans`,
+        )
+      : null,
   ]);
   const total = count?.n ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -70,7 +79,9 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         <p className="text-sm text-[color:var(--muted)]">{total.toLocaleString("es-AR")} alumnos</p>
       </div>
 
+      {isSuper && <StartMarathon pending={start?.pending ?? 0} firstStop={start?.first_stop ?? null} />}
       {isSuper && <StudentTools courses={courses.map((c) => c.course)} />}
+      {isSuper && <ResetTools courses={courses.map((c) => c.course)} activeScans={start?.active_scans ?? 0} />}
 
       <form method="get" className="card card-pad grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_auto]">
         <div>

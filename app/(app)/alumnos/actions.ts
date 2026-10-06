@@ -149,6 +149,62 @@ export async function resetStages(formData: FormData) {
   revalidateStudent(id);
 }
 
+/**
+ * Largada: registra el paso por la primera parada activa de todos los alumnos inscriptos (activos)
+ * que todavía no tienen ningún registro. Todos quedan con la misma hora de largada.
+ */
+export async function startMarathon(_prev: FormState, _formData: FormData): Promise<FormState> {
+  const user = await requireSuperadmin();
+  const first = await queryOne<{ id: number; name: string }>("SELECT id, name FROM stops WHERE active ORDER BY position LIMIT 1");
+  if (!first) return { error: "No hay ninguna parada activa. Creá la parada de largada en Paradas." };
+
+  const inserted = await query(
+    `INSERT INTO scans (student_id, stop_id, scanned_by, scanned_at, method, skipped_previous)
+     SELECT s.id, $1, $2, now(), 'manual', false
+       FROM students s
+      WHERE s.active
+        AND NOT EXISTS (
+          SELECT 1 FROM scans sc JOIN stops p ON p.id = sc.stop_id AND p.active
+           WHERE sc.student_id = s.id AND sc.deleted_at IS NULL)
+     ON CONFLICT (student_id, stop_id) WHERE deleted_at IS NULL DO NOTHING
+     RETURNING id`,
+    [first.id, user.id],
+  );
+  revalidatePath("/alumnos");
+  revalidatePath("/registros");
+  revalidatePath("/estadisticas");
+  if (inserted.length === 0) return { ok: "Todos los alumnos inscriptos ya habían iniciado." };
+  return { ok: `Maratón iniciado: ${inserted.length} alumnos largaron en "${first.name}".` };
+}
+
+/** Reinicia toda la maratón: anula los registros de todos los alumnos (el historial se conserva en Registros). */
+export async function resetMarathon(_prev: FormState, _formData: FormData): Promise<FormState> {
+  const user = await requireSuperadmin();
+  const voided = await query("UPDATE scans SET deleted_at = now(), deleted_by = $1 WHERE deleted_at IS NULL RETURNING id", [user.id]);
+  revalidateAll();
+  return { ok: voided.length ? `Maratón reiniciada: se quitaron ${voided.length} registros. Todos los alumnos quedaron sin iniciar.` : "No había registros para quitar." };
+}
+
+/** Deja sin iniciar a todos los alumnos de un curso. */
+export async function resetCourse(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireSuperadmin();
+  const course = String(formData.get("course") ?? "").trim();
+  if (!course) return { error: "Elegí un curso." };
+  const voided = await query(
+    `UPDATE scans SET deleted_at = now(), deleted_by = $1
+      WHERE deleted_at IS NULL AND student_id IN (SELECT id FROM students WHERE course = $2) RETURNING id`,
+    [user.id, course],
+  );
+  revalidateAll();
+  return { ok: voided.length ? `Curso ${course}: se quitaron ${voided.length} registros.` : `El curso ${course} no tenía registros.` };
+}
+
+function revalidateAll() {
+  revalidatePath("/alumnos");
+  revalidatePath("/registros");
+  revalidatePath("/estadisticas");
+}
+
 function revalidateStudent(id: number) {
   revalidatePath(`/alumnos/${id}`);
   revalidatePath("/alumnos");
