@@ -213,25 +213,29 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
 
         {/* Ranking */}
         <section className="card card-pad">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-extrabold"><Medal className="size-5 text-sun-600" /> Los más rápidos</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-extrabold"><Medal className="size-5 text-sun-600" /> Los más rápidos</h2>
+            <Link href="/estadisticas/ranking" className="text-sm font-bold text-brand-600 hover:underline">Ranking completo</Link>
+          </div>
           {finishers.length === 0 ? (
             <p className="py-10 text-center text-sm text-[color:var(--muted)]">Todavía nadie completó todas las paradas.</p>
           ) : (
             <div className="table-wrap">
               <table className="tbl">
-                <thead><tr><th>#</th><th>Alumno</th><th>Tiempo total</th><th>Llegada</th></tr></thead>
+                <thead><tr><th>#</th><th>Alumno</th><th>Largada</th><th>Llegada</th><th>Diferencia</th></tr></thead>
                 <tbody>
                   {finishers.map((f) => (
                     <tr key={f.studentId}>
                       <td>
-                        <span className={`grid size-7 place-items-center rounded-full text-sm font-extrabold ${f.rank <= 3 ? "bg-sun-400 text-navy-950" : "bg-brand-100 text-brand-700"}`}>{f.rank}</span>
+                        <span className={`grid size-7 place-items-center rounded-full text-sm font-extrabold ${(f.rank ?? 99) <= 3 ? "bg-sun-400 text-navy-950" : "bg-brand-100 text-brand-700"}`}>{f.rank}</span>
                       </td>
                       <td>
                         <Link href={`/alumnos/${f.studentId}`} className="font-bold hover:underline">{f.name}</Link>
                         {f.course && <span className="block text-xs text-[color:var(--muted)]">{f.course}</span>}
                       </td>
+                      <td className="num text-[color:var(--muted)]">{formatTime(f.startedAt)}</td>
+                      <td className="num text-[color:var(--muted)]">{formatTime(f.finishedAt!)}</td>
                       <td className="num font-bold">{formatDuration(f.durationSeconds)}</td>
-                      <td className="num text-[color:var(--muted)]">{formatTime(f.finishedAt)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -19,8 +19,8 @@ const ITEMS: Item[] = [
 export function Nav({ isSuperadmin }: { isSuperadmin: boolean }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Principal" className="no-scrollbar -mx-4 overflow-x-auto px-4 lg:mx-0 lg:overflow-visible lg:px-0">
-      <ul className="flex min-w-max gap-1 lg:min-w-0 lg:justify-center lg:gap-1.5">
+    <nav aria-label="Principal" className="no-scrollbar -mx-4 overflow-x-auto px-4 xl:mx-0 xl:px-0">
+      <ul className="flex min-w-max gap-1 lg:justify-center">
         {ITEMS.filter((i) => !i.superOnly || isSuperadmin).map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
@@ -28,7 +28,7 @@ export function Nav({ isSuperadmin }: { isSuperadmin: boolean }) {
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors lg:px-3.5 ${
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-bold transition-colors xl:px-2 2xl:px-3 ${
                   active ? "bg-sun-400 text-navy-950 shadow-sm" : "text-brand-100 hover:bg-white/10 hover:text-white"
                 }`}
               >

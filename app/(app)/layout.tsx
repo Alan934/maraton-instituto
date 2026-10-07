@@ -13,20 +13,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 bg-navy-900 text-white shadow-md">
         <div className="h-1 bg-gradient-to-r from-brand-500 via-brand-500 to-sun-400" style={{ backgroundSize: "100% 100%" }} />
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2.5 lg:flex-nowrap lg:py-3">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 xl:flex-nowrap xl:py-3">
           <Link href="/escanear" className="flex shrink-0 items-center gap-2.5">
             <LogoMark size={32} />
             <span className="text-base font-extrabold tracking-tight">{APP_NAME}</span>
           </Link>
-          <div className="flex items-center gap-1 lg:order-3 lg:border-l lg:border-white/15 lg:pl-4">
+          <div className="flex items-center gap-1 xl:order-3 xl:border-l xl:border-white/15 xl:pl-4">
             <UserMenu name={user.fullName} role={user.role} />
           </div>
-          <div className="w-full min-w-0 lg:order-2 lg:w-auto lg:flex-1">
+          <div className="w-full min-w-0 xl:order-2 xl:w-auto xl:flex-1">
             <Nav isSuperadmin={user.role === "superadmin"} />
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-5 sm:py-7">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-5 sm:py-7">{children}</main>
     </div>
   );
 }
@@ -40,7 +40,7 @@ function UserMenu({ name, role }: { name: string; role: string }) {
         title="Mi cuenta"
       >
         <UserCircle className="size-5" aria-hidden />
-        <span className="max-w-32 truncate font-semibold">{name}</span>
+        <span className="max-w-24 truncate 2xl:max-w-32 font-semibold">{name}</span>
         {role === "superadmin" && <span className="badge badge-sun">Super</span>}
       </Link>
       <form action={logout}>

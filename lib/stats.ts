@@ -2,6 +2,7 @@ import "server-only";
 import { query, queryOne } from "./db";
 import { TIME_ZONE } from "./config";
 import { todayInMendoza } from "./time";
+import { getRanking, type RankingRow } from "./ranking";
 
 // Registros válidos: no anulados y de paradas activas.
 const VALID_SCANS = `
@@ -39,15 +40,6 @@ export type StopStat = {
 
 export type HourBucket = { hour: number; count: number };
 export type CourseStat = { course: string; total: number; started: number; finished: number; avgStops: number };
-export type FinisherStat = {
-  rank: number;
-  studentId: number;
-  name: string;
-  course: string | null;
-  startedAt: string;
-  finishedAt: string;
-  durationSeconds: number;
-};
 export type AdminStat = { id: number; name: string; role: string; scans: number; firstAt: string | null; lastAt: string | null };
 export type RecentScan = {
   id: number;
@@ -67,7 +59,7 @@ export type Stats = {
   stops: StopStat[];
   timeline: { date: string; availableDates: string[]; buckets: HourBucket[] };
   courses: CourseStat[];
-  finishers: FinisherStat[];
+  finishers: RankingRow[];
   admins: AdminStat[];
   recent: RecentScan[];
   generatedAt: string;
@@ -76,7 +68,7 @@ export type Stats = {
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 export async function getStats(dateParam?: string | null): Promise<Stats> {
-  const [overviewRow, stopRows, dateRows, courseRows, finisherRows, adminRows, recentRows] = await Promise.all([
+  const [overviewRow, stopRows, dateRows, courseRows, top, adminRows, recentRows] = await Promise.all([
     queryOne(`
       WITH vs AS (${VALID_SCANS}),
       last_stop AS (SELECT id FROM stops WHERE active ORDER BY position DESC LIMIT 1),
@@ -138,18 +130,7 @@ export async function getStats(dateParam?: string | null): Promise<Stats> {
             FROM vs WHERE vs.student_id = s.id) pr ON true
        WHERE s.active
        GROUP BY 1 ORDER BY 1`),
-    query(`
-      WITH vs AS (${VALID_SCANS}),
-      last_stop AS (SELECT id FROM stops WHERE active ORDER BY position DESC LIMIT 1),
-      bounds AS (SELECT student_id, min(scanned_at) AS started_at FROM vs GROUP BY student_id)
-      SELECT s.id, s.first_name, s.last_name, s.course, b.started_at, f.scanned_at AS finished_at,
-             extract(epoch FROM f.scanned_at - b.started_at)::float AS duration
-        FROM vs f
-        JOIN bounds b ON b.student_id = f.student_id
-        JOIN students s ON s.id = f.student_id
-       WHERE f.stop_id = (SELECT id FROM last_stop)
-       ORDER BY duration ASC, f.scanned_at ASC
-       LIMIT 10`),
+    getRanking({}, 10, 0),
     query(`
       WITH vs AS (${VALID_SCANS})
       SELECT u.id, u.full_name, u.role, count(vs.id)::int AS scans, min(vs.scanned_at) AS first_at, max(vs.scanned_at) AS last_at
@@ -225,15 +206,7 @@ export async function getStats(dateParam?: string | null): Promise<Stats> {
     })),
     timeline: { date, availableDates, buckets },
     courses: courseRows.map((r) => ({ course: r.course, total: r.total, started: r.started, finished: r.finished, avgStops: r.avg_stops })),
-    finishers: finisherRows.map((r, i) => ({
-      rank: i + 1,
-      studentId: r.id,
-      name: `${r.last_name}, ${r.first_name}`,
-      course: r.course,
-      startedAt: r.started_at.toISOString(),
-      finishedAt: r.finished_at.toISOString(),
-      durationSeconds: r.duration,
-    })),
+    finishers: top.rows,
     admins: adminRows.map((r) => ({ id: r.id, name: r.full_name, role: r.role, scans: r.scans, firstAt: iso(r.first_at), lastAt: iso(r.last_at) })),
     recent: recentRows.map((r) => ({
       id: Number(r.id),
